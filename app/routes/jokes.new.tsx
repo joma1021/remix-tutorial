@@ -1,10 +1,18 @@
-import type { ActionArgs } from "@remix-run/node";
-import { redirect } from "@remix-run/node";
-import { useActionData } from "@remix-run/react";
+import type { ActionArgs, LoaderArgs } from "@remix-run/node";
+import { json, redirect } from "@remix-run/node";
+import { isRouteErrorResponse, Link, useActionData, useRouteError } from "@remix-run/react";
 
 import { db } from "~/utils/db.server";
 import { badRequest } from "~/utils/request.server";
-import { requireUserId } from "~/utils/session.server";
+import { getUserId, requireUserId } from "~/utils/session.server";
+
+export const loader = async ({ request }: LoaderArgs) => {
+  const userId = await getUserId(request);
+  if (!userId) {
+    throw new Response("Unauthorized", { status: 401 });
+  }
+  return json({});
+};
 
 function validateJokeContent(content: string) {
   if (content.length < 10) {
@@ -23,8 +31,6 @@ export const action = async ({ request }: ActionArgs) => {
   const form = await request.formData();
   const content = form.get("content");
   const name = form.get("name");
-  // we do this type check to be extra sure and to make TypeScript happy
-  // we'll explore validation next!
   if (typeof content !== "string" || typeof name !== "string") {
     return badRequest({
       fieldErrors: null,
@@ -32,6 +38,7 @@ export const action = async ({ request }: ActionArgs) => {
       formError: "Form not submitted correctly.",
     });
   }
+
   const fieldErrors = {
     content: validateJokeContent(content),
     name: validateJokeName(name),
@@ -45,12 +52,15 @@ export const action = async ({ request }: ActionArgs) => {
     });
   }
 
-  const joke = await db.joke.create({ data: { ...fields, jokesterId: userId } });
+  const joke = await db.joke.create({
+    data: { ...fields, jokesterId: userId },
+  });
   return redirect(`/jokes/${joke.id}`);
 };
 
 export default function NewJokeRoute() {
   const actionData = useActionData<typeof action>();
+
   return (
     <div>
       <p>Add your own hilarious joke</p>
@@ -101,4 +111,19 @@ export default function NewJokeRoute() {
       </form>
     </div>
   );
+}
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+
+  if (isRouteErrorResponse(error) && error.status === 401) {
+    return (
+      <div className="error-container">
+        <p>You must be logged in to create a joke.</p>
+        <Link to="/login">Login</Link>
+      </div>
+    );
+  }
+
+  return <div className="error-container">Something unexpected went wrong. Sorry about that.</div>;
 }

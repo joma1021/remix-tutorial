@@ -23,3 +23,7 @@ export default function IndexRoute() {
     </div>
   );
 }
+
+export function ErrorBoundary() {
+  return <div className="error-container">I did a whoopsies.</div>;
+}

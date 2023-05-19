@@ -12,7 +12,7 @@ export const loader = async ({ request }: LoaderArgs) => {
   const jokeListItems = await db.joke.findMany({
     orderBy: { createdAt: "desc" },
     select: { id: true, name: true },
-    take: 10‚,
+    take: 10,
   });
   const user = await getUser(request);
 
